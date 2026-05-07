@@ -72,7 +72,7 @@ class DartAnalyzeHook {
             'reason': 'Failed to get git files.',
           }),
         );
-        onExit(0); // Exit 0 so Jetski captures the stdout JSON
+        onExit(0); // Exit 0 so Antigravity captures the stdout JSON
       }
 
       final List<String> files = (gitResult.stdout as String)
@@ -114,13 +114,13 @@ class DartAnalyzeHook {
         onExit(0);
       }
 
-      // If there are issues, tell Jetski to CONTINUE and provide the reason.
+      // If there are issues, tell Antigravity to CONTINUE and provide the reason.
       await logToFile('Analysis failed');
 
       final reason =
           'Analyzer issues found. Please fix these before finishing:\n\n$output$error';
       printStdout(jsonEncode({'decision': 'continue', 'reason': reason}));
-      onExit(0); // Exit 0 so Jetski captures the stdout JSON.
+      onExit(0); // Exit 0 so Antigravity captures the stdout JSON.
     } catch (e, stackTrace) {
       await logToFile('UNHANDLED EXCEPTION: $e');
       await logToFile(stackTrace.toString());

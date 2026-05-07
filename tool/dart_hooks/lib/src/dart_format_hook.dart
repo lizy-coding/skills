@@ -4,7 +4,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as path;
 import 'hook_utils.dart';
 
 /// Implements the dart format hook logic.
@@ -71,40 +70,21 @@ class DartFormatHook {
       final String repoRoot = (repoRootResult.stdout as String).trim();
 
       // 1. Check if there are modified .dart files.
-      final ProcessResult gitResult = await runProcess('git', [
-        'status',
-        '--porcelain',
-        '-z',
-      ], runInShell: false);
-
-      if (gitResult.exitCode != 0) {
-        await logToFile('ERROR: git status failed with exit code ${gitResult.exitCode}');
-        await logToFile(gitResult.stderr as String);
+      final List<String> modifiedDartFiles;
+      try {
+        // ignore: invalid_use_of_visible_for_testing_member
+        modifiedDartFiles = await getModifiedFilesInternal(
+          runProcess: runProcess,
+          packageRoot: currentPath,
+          repoRoot: repoRoot,
+          fileExists: fileExists,
+          allowedExtensions: ['.dart'],
+        );
+      } catch (e) {
+        await logToFile('ERROR: Failed to get modified files: $e');
         emitEmptyResult();
         onExit(1);
         return;
-      }
-
-      final List<String> modifiedDartFiles = [];
-      final List<String> entries = (gitResult.stdout as String).split('\x00');
-      for (var i = 0; i < entries.length; i++) {
-        final String entry = entries[i];
-        if (entry.length < 4) {
-          continue;
-        }
-        final String status = entry.substring(0, 2);
-        String filePath = entry.substring(3);
-        if (status.startsWith('R') || status.startsWith('C')) {
-          if (i + 1 < entries.length) {
-            filePath = entries[++i];
-          }
-        }
-        if (filterGeneratedFiles(filePath)) {
-          final String fullPath = path.join(repoRoot, filePath);
-          if (fileExists(fullPath)) {
-            modifiedDartFiles.add(fullPath);
-          }
-        }
       }
 
       if (modifiedDartFiles.isEmpty) {

@@ -1,18 +1,14 @@
 {
   "dart-format": {
-    "PostToolUse": [
+    "Stop": [
       {
-        "matcher": "*",
-        "hooks": [
-          {
-            "command": "../tool/dart_hooks/bin/agent_dart_format.dart --source hook",
-            "timeout": 30
-          }
-        ]
+        "type": "command",
+        "command": "../tool/dart_hooks/bin/agent_dart_format.dart --source hook",
+        "timeout": 30
       }
     ]
   },
-  "dart-analyze-gate": {
+  "dart-analyze": {
     "Stop": [
       {
         "type": "command",

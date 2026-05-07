@@ -4,7 +4,6 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as path;
 import 'hook_utils.dart';
 
 /// Implements the dart analyze hook logic.
@@ -67,41 +66,22 @@ class DartAnalyzeHook {
       final String repoRoot = (repoRootResult.stdout as String).trim();
 
       // Get list of all Dart files in the package not ignored by git
-      final ProcessResult gitResult = await runProcess(
-        'git',
-        ['status', '--porcelain', '-z', '.'],
-        runInShell: false,
-        workingDirectory: packageRoot,
-      );
-
-      if (gitResult.exitCode != 0) {
-        await logToFile('ERROR: git status failed with exit code ${gitResult.exitCode}');
-        await logToFile(gitResult.stderr as String);
+      final List<String> files;
+      try {
+        // ignore: invalid_use_of_visible_for_testing_member
+        files = await getModifiedFilesInternal(
+          runProcess: runProcess,
+          packageRoot: packageRoot,
+          repoRoot: repoRoot,
+          fileExists: fileExists,
+          allowedExtensions: ['.dart'],
+        );
+      } catch (e) {
+        await logToFile('ERROR: Failed to get modified files: $e');
         printStdout(jsonEncode({'decision': 'continue', 'reason': 'Failed to get git status.'}));
-        onExit(0); // Exit 0 so Antigravity captures the stdout JSON
+        // Exit 0 so Antigravity captures the stdout JSON
+        onExit(0);
         return;
-      }
-
-      final List<String> files = [];
-      final List<String> entries = (gitResult.stdout as String).split('\x00');
-      for (var i = 0; i < entries.length; i++) {
-        final String entry = entries[i];
-        if (entry.length < 4) {
-          continue;
-        }
-        final String status = entry.substring(0, 2);
-        String filePath = entry.substring(3);
-        if (status.startsWith('R') || status.startsWith('C')) {
-          if (i + 1 < entries.length) {
-            filePath = entries[++i];
-          }
-        }
-        if (filterGeneratedFiles(filePath)) {
-          final String fullPath = path.join(repoRoot, filePath);
-          if (fileExists(fullPath)) {
-            files.add(fullPath);
-          }
-        }
       }
 
       if (files.isEmpty) {
@@ -139,7 +119,8 @@ class DartAnalyzeHook {
 
       final reason = 'Analyzer issues found. Please fix these before finishing:\n\n$output$error';
       printStdout(jsonEncode({'decision': 'continue', 'reason': reason}));
-      onExit(0); // Exit 0 so Antigravity captures the stdout JSON.
+      // Exit 0 so Antigravity captures the stdout JSON.
+      onExit(0);
       return;
     } catch (e, stackTrace) {
       await logToFile('UNHANDLED EXCEPTION: $e');

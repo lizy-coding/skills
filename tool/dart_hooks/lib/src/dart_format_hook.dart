@@ -87,16 +87,22 @@ class DartFormatHook {
       final List<String> modifiedDartFiles = [];
       final List<String> entries = (gitResult.stdout as String).split('\x00');
       for (var i = 0; i < entries.length; i++) {
-        final entry = entries[i];
-        if (entry.length < 4) continue;
-        final status = entry.substring(0, 2);
-        var filePath = entry.substring(3);
+        final String entry = entries[i];
+        if (entry.length < 4) {
+          continue;
+        }
+        final String status = entry.substring(0, 2);
+        String filePath = entry.substring(3);
         if (status.startsWith('R') || status.startsWith('C')) {
-          if (i + 1 < entries.length) filePath = entries[++i];
+          if (i + 1 < entries.length) {
+            filePath = entries[++i];
+          }
         }
         if (filePath.endsWith('.dart')) {
-          final fullPath = path.join(repoRoot, filePath);
-          if (fileExists(fullPath)) modifiedDartFiles.add(fullPath);
+          final String fullPath = path.join(repoRoot, filePath);
+          if (fileExists(fullPath)) {
+            modifiedDartFiles.add(fullPath);
+          }
         }
       }
 

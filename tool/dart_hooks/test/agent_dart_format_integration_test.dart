@@ -119,5 +119,63 @@ void main() {
       final List<String> linesSecondRun = await logFile.readAsLines();
       expect(linesSecondRun.length, equals(4)); // Appended 2 more lines
     });
+
+    test('Only formats modified files', () async {
+      final modifiedFile = File(path.join(repoRoot, 'modified.dart'));
+      await modifiedFile.writeAsString('void main() {  print("modified");}'); // Poorly formatted
+
+      final untouchedFile = File(path.join(repoRoot, 'untouched.dart'));
+      await untouchedFile.writeAsString('void main() {  print("untouched");}'); // Poorly formatted
+
+      // Commit both files to make them "untouched"
+      await Process.run('git', ['add', '.'], workingDirectory: repoRoot, runInShell: true);
+      await Process.run(
+        'git',
+        ['commit', '-m', 'Add initial files'],
+        workingDirectory: repoRoot,
+        runInShell: true,
+      );
+
+      // Now modify only one file (keep it poorly formatted or change content)
+      await modifiedFile.writeAsString(
+        'void main() {  print("modified-edited");}',
+      ); // Poorly formatted
+
+      String? stdoutMessage;
+      int? exitCode;
+
+      final hook = DartFormatHook(
+        runProcess: (cmd, args, {bool runInShell = false, String? workingDirectory}) {
+          return Process.run(
+            cmd,
+            args,
+            runInShell: runInShell,
+            workingDirectory: workingDirectory ?? repoRoot,
+          );
+        },
+        fileExists: (p) => File(p).existsSync(),
+        printStdout: (msg) => stdoutMessage = msg,
+        logToFile: (msg) async {},
+        onExit: (code) => exitCode = code,
+      );
+
+      // Run the hook
+      await hook.run([], repoRoot);
+
+      // Verify JSON output
+      expect(stdoutMessage, equals(jsonEncode({})));
+      expect(exitCode, equals(0));
+
+      // Verify modified file was formatted
+      final String modifiedContent = await modifiedFile.readAsString();
+      expect(modifiedContent, equals('void main() {\n  print("modified-edited");\n}\n'));
+
+      // Verify untouched file was NOT formatted
+      final String untouchedContent = await untouchedFile.readAsString();
+      expect(
+        untouchedContent,
+        equals('void main() {  print("untouched");}'),
+      ); // Still poorly formatted
+    });
   });
 }

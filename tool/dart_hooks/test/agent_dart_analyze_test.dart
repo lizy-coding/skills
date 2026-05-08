@@ -52,6 +52,9 @@ void main() {
           bool runInShell = false,
           String? workingDirectory,
         }) async {
+          if (cmd == 'git' && args.contains('--show-toplevel')) {
+            return ProcessResult(0, 0, '/package/root', '');
+          }
           if (cmd == 'git' && args.first == 'status') {
             return ProcessResult(0, 0, 'M  lib/file.dart\x00', '');
           }
@@ -88,6 +91,9 @@ void main() {
           bool runInShell = false,
           String? workingDirectory,
         }) async {
+          if (cmd == 'git' && args.contains('--show-toplevel')) {
+            return ProcessResult(0, 0, '/package/root', '');
+          }
           if (cmd == 'git' && args.first == 'status') {
             return ProcessResult(0, 0, 'M  lib/file.dart\x00', '');
           }
@@ -124,6 +130,9 @@ void main() {
           bool runInShell = false,
           String? workingDirectory,
         }) async {
+          if (cmd == 'git' && args.contains('--show-toplevel')) {
+            return ProcessResult(0, 0, '/package/root', '');
+          }
           if (cmd == 'git' && args.first == 'status') {
             return ProcessResult(0, 0, 'M  lib/my file.dart\x00M  lib/other.dart\x00', '');
           }

@@ -95,12 +95,53 @@ abstract class BaseGitHook {
 
       await logToFile('Running command on ${scopedFiles.length} files...');
 
-      // 4. Execute the specific command
-      final ProcessResult result = await executeCommand(scopedFiles);
+      // 4. Execute the specific command in chunks to avoid ARG_MAX limits.
+      // Determining the exact ARG_MAX is hard as it varies by OS and depends on environment size.
+      const maxCharsPerChunk = 4000;
+      var combinedExitCode = 0;
+      final combinedStdout = StringBuffer();
+      final combinedStderr = StringBuffer();
 
-      final int exitCode = result.exitCode;
-      final output = result.stdout as String;
-      final error = result.stderr as String;
+      var currentChunk = <String>[];
+      var currentChunkLength = 0;
+
+      for (final file in scopedFiles) {
+        // Add 1 for the space separator between arguments
+        final int fileLen = file.length + 1;
+
+        if (currentChunkLength + fileLen > maxCharsPerChunk && currentChunk.isNotEmpty) {
+          await logToFile('Running command on chunk of ${currentChunk.length} files...');
+          final ProcessResult result = await executeCommand(currentChunk);
+
+          if (result.exitCode != 0) {
+            combinedExitCode = result.exitCode;
+          }
+          combinedStdout.write(result.stdout);
+          combinedStderr.write(result.stderr);
+
+          currentChunk = <String>[];
+          currentChunkLength = 0;
+        }
+
+        currentChunk.add(file);
+        currentChunkLength += fileLen;
+      }
+
+      // Run the last chunk if not empty
+      if (currentChunk.isNotEmpty) {
+        await logToFile('Running command on chunk of ${currentChunk.length} files...');
+        final ProcessResult result = await executeCommand(currentChunk);
+
+        if (result.exitCode != 0) {
+          combinedExitCode = result.exitCode;
+        }
+        combinedStdout.write(result.stdout);
+        combinedStderr.write(result.stderr);
+      }
+
+      final exitCode = combinedExitCode;
+      final String output = combinedStdout.toString().trim();
+      final String error = combinedStderr.toString().trim();
 
       await logToFile('Command finished with code $exitCode');
 
@@ -113,8 +154,10 @@ abstract class BaseGitHook {
       }
 
       await logToFile('Command failed');
-      final reason = '$hookName issues found. Please fix these before finishing:\n\n$output$error';
-      printStdout(jsonEncode({'decision': 'continue', 'reason': reason}));
+      final separator = (output.isNotEmpty && error.isNotEmpty) ? '\n' : '';
+      final reason =
+          '$hookName issues found. Please fix these before finishing:\n\n$output$separator$error';
+      printStdout(jsonEncode({'decision': 'continue', 'reason': reason.trim()}));
       onExit(0);
       return;
     } catch (e, stackTrace) {

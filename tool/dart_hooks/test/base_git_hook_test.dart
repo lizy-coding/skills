@@ -114,5 +114,50 @@ void main() {
       expect(stdoutMessage, contains('Error occurred'));
       expect(exitCode, equals(0)); // Exits 0 so Antigravity captures stdout JSON
     });
+
+    test('Chunking behavior works when file list is large', () async {
+      String? stdoutMessage;
+      int? exitCode;
+      final List<List<String>> executedChunks = [];
+
+      final hook = TestHook(
+        processRunner: MockProcessRunner((
+          String cmd,
+          List<String> args, {
+          bool runInShell = false,
+          String? workingDirectory,
+        }) async {
+          if (cmd == 'git' && args.first == 'rev-parse') {
+            return ProcessResult(0, 0, '/repo/root', '');
+          }
+          if (cmd == 'git' && args.first == 'status') {
+            // Generate a large list of files
+            final String files = List.generate(150, (i) => 'M  lib/file$i.dart\x00').join();
+            return ProcessResult(0, 0, files, '');
+          }
+          return ProcessResult(0, 0, '', '');
+        }),
+        fileExists: (path) => true,
+        printStdout: (msg) => stdoutMessage = msg,
+        logToFile: (msg) async {},
+        onExit: (code) => exitCode = code,
+        executeCommandMock: (files) async {
+          executedChunks.add(files);
+          return ProcessResult(0, 0, 'Success', '');
+        },
+      );
+
+      await hook.run(
+        args: [],
+        currentPath: '/repo/root',
+        packageRoot: '/repo/root',
+        triggerSource: 'MANUAL',
+      );
+
+      expect(executedChunks.length, equals(2));
+      expect(executedChunks.expand((x) => x).length, equals(150));
+      expect(stdoutMessage, equals(jsonEncode({'decision': 'stop'})));
+      expect(exitCode, equals(0));
+    });
   });
 }

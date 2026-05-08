@@ -1,6 +1,7 @@
 // Copyright (c) 2026, the Dart project authors.  Please see the AUTHORS file
 // for details. All rights reserved. Use of this source code is governed by a
 // BSD-style license that can be found in the LICENSE file.
+import 'dart:async';
 import 'dart:io';
 import 'package:args/args.dart';
 import 'package:logging/logging.dart';
@@ -130,11 +131,16 @@ Future<void> runHookMain({
   final String logFilePath = path.join(Directory.current.path, logFileName);
   final logFile = File(logFilePath);
 
+  IOSink? logSink;
+  if (enableLogging) {
+    logSink = logFile.openWrite(mode: FileMode.append);
+  }
+
   Logger.root.level = Level.ALL;
-  Logger.root.onRecord.listen((record) {
+  final StreamSubscription<LogRecord> subscription = Logger.root.onRecord.listen((record) {
     final message = '${record.time.toIso8601String()} [${record.level.name}] ${record.message}';
-    if (enableLogging) {
-      logFile.writeAsStringSync('$message\n', mode: FileMode.append);
+    if (enableLogging && logSink != null) {
+      logSink.writeln(message);
     }
   });
 
@@ -149,5 +155,10 @@ Future<void> runHookMain({
     logger.info(message);
   }
 
-  await executeHook(triggerSource, logToFile);
+  try {
+    await executeHook(triggerSource, logToFile);
+  } finally {
+    await subscription.cancel();
+    await logSink?.close();
+  }
 }

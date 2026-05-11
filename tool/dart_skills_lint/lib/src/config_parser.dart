@@ -34,10 +34,21 @@ class ConfigParser {
     return AnalysisSeverity.disabled; // Default if unknown
   }
 
-  /// Reads dart_skills_lint.yaml from the current directory and returns the configuration.
-  static Future<Configuration> loadConfig() async {
-    final configFile = File('dart_skills_lint.yaml');
+  /// Loads the configuration from the specified [path], or from the default
+  /// `dart_skills_lint.yaml` if no path is provided.
+  ///
+  /// If a [path] is explicitly provided and the file does not exist, this
+  /// method throws a [PathNotFoundException]. If no path is provided and the
+  /// default file is missing, it returns an empty [Configuration] (preserving
+  /// current behavior).
+  static Future<Configuration> loadConfig({String? path}) async {
+    final String resolvedPath = path ?? 'dart_skills_lint.yaml';
+    final configFile = File(resolvedPath);
+
     if (!configFile.existsSync()) {
+      if (path != null) {
+        throw FileSystemException('Configuration file not found', resolvedPath);
+      }
       return Configuration();
     }
 
@@ -60,7 +71,7 @@ class ConfigParser {
         }
       }
     } catch (e) {
-      _log.warning('Failed to parse dart_skills_lint.yaml: $e');
+      _log.warning('Failed to parse $resolvedPath: $e');
     }
     return Configuration();
   }

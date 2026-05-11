@@ -5,7 +5,7 @@ import 'package:logging/logging.dart';
 import 'package:test/test.dart';
 
 void main() {
-  test('Run skills linter', () async {
+  test('Run skills linter mirroring config', () async {
     final Level oldLevel = Logger.root.level;
     Logger.root.level = Level.ALL;
     final StreamSubscription<LogRecord> subscription = Logger.root.onRecord.listen(
@@ -13,12 +13,13 @@ void main() {
     );
 
     try {
+      // Load configuration from the default file (dart_skills_lint.yaml)
+      // to mirror what is configured in the repository.
+      final Configuration config = await ConfigParser.loadConfig();
+
       final bool isValid = await validateSkills(
-        skillDirPaths: ['.agents/skills', 'skills', '../../skills'],
-        resolvedRules: {
-          'check-relative-paths': AnalysisSeverity.error,
-          'check-trailing-whitespace': AnalysisSeverity.error,
-        },
+        config: config,
+        resolvedRules: config.configuredRules, // Pass global rules from config
       );
       expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
     } finally {

@@ -17,6 +17,7 @@ import 'models/skill_context.dart';
 import 'models/skill_rule.dart';
 import 'models/skills_ignores.dart';
 import 'models/validation_error.dart';
+import 'path_utils.dart';
 import 'skills_ignores_storage.dart';
 import 'validator.dart';
 
@@ -62,7 +63,7 @@ class ValidationSession {
     required this.fixApply,
   }) : _normalizedDirectoryConfigs = [
          for (final dc in config.directoryConfigs)
-           (normalizedPath: p.normalize(dc.path), config: dc),
+           (normalizedPath: p.normalize(expandPath(dc.path)), config: dc),
        ];
 
   final Configuration config;
@@ -96,7 +97,7 @@ class ValidationSession {
   /// a missing directory contributes to [anyFailed] but still allows the
   /// caller to continue.
   Future<bool> processIndividualSkill(String skillPath) async {
-    final String normalizedSkillPath = p.normalize(_expandPath(skillPath));
+    final String normalizedSkillPath = p.normalize(expandPath(skillPath));
     if (!quiet) {
       _log.info('$evaluatingDirMsg $normalizedSkillPath');
     }
@@ -159,7 +160,7 @@ class ValidationSession {
   /// `false` if [fastFail] is set and any failure has accumulated across the
   /// run so far.
   Future<bool> processSkillRoot(String rootPath) async {
-    final String normalizedRootPath = p.normalize(_expandPath(rootPath));
+    final String normalizedRootPath = p.normalize(expandPath(rootPath));
     if (!quiet) {
       _log.info('$evaluatingDirMsg $normalizedRootPath');
     }
@@ -244,7 +245,7 @@ class ValidationSession {
 
     var foundSingleSkillPassedToD = false;
     for (final rootPath in rootPaths) {
-      final String expandedRootPath = _expandPath(rootPath);
+      final String expandedRootPath = expandPath(rootPath);
       final skillMdFile = File(p.join(expandedRootPath, SkillContext.skillFileName));
       if (skillMdFile.existsSync()) {
         _log.severe(
@@ -297,7 +298,7 @@ class ValidationSession {
     Directory rootDir,
   ) async {
     final String ignorePath = localIgnoreFile != null
-        ? p.normalize(_expandPath(localIgnoreFile))
+        ? p.normalize(expandPath(localIgnoreFile))
         : p.join(rootDir.path, defaultIgnoreFileName);
 
     final file = File(ignorePath);
@@ -545,15 +546,5 @@ class ValidationSession {
         _log.warning('    - $warning');
       }
     }
-  }
-
-  String _expandPath(String path) {
-    if (path.startsWith('~/')) {
-      final String? homeDir = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-      if (homeDir != null) {
-        return p.join(homeDir, path.substring(2));
-      }
-    }
-    return path;
   }
 }

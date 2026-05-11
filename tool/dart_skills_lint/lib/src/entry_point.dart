@@ -68,28 +68,8 @@ Future<void> runApp(List<String> args) async {
     return;
   }
 
-  var skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
+  final skillDirPaths = results[_skillsDirectoryFlag] as List<String>;
   final individualSkillPaths = results[_skillOption] as List<String>;
-
-  if (skillDirPaths.isEmpty && individualSkillPaths.isEmpty) {
-    if (config.directoryConfigs.isNotEmpty) {
-      skillDirPaths = config.directoryConfigs.map((e) => e.path).toList();
-    } else {
-      final defaults = ['.claude/skills', '.agents/skills'];
-      final existingDefaults = <String>[];
-      for (final path in defaults) {
-        if (Directory(path).existsSync()) {
-          existingDefaults.add(path);
-        }
-      }
-      if (existingDefaults.isEmpty) {
-        _printUsage(parser, 'Missing skills directory. Checked defaults: ${defaults.join(', ')}');
-        exitCode = 64;
-        return;
-      }
-      skillDirPaths = existingDefaults;
-    }
-  }
 
   final Map<String, AnalysisSeverity> resolvedRules = resolveRules(results, config);
 
@@ -105,21 +85,26 @@ Future<void> runApp(List<String> args) async {
     ignoreFileOverride = results[_ignoreFileOption] as String?;
   }
 
-  final bool success = await validateSkillsInternal(
-    skillDirPaths: skillDirPaths,
-    individualSkillPaths: individualSkillPaths,
-    resolvedRules: resolvedRules,
-    printWarnings: printWarnings,
-    fastFail: fastFail,
-    quiet: quiet,
-    generateBaseline: generateBaseline,
-    fix: fix,
-    fixApply: fixApply,
-    ignoreFileOverride: ignoreFileOverride,
-    config: config,
-  );
-
-  exitCode = success ? 0 : 1;
+  bool success;
+  try {
+    success = await validateSkillsInternal(
+      skillDirPaths: skillDirPaths,
+      individualSkillPaths: individualSkillPaths,
+      resolvedRules: resolvedRules,
+      printWarnings: printWarnings,
+      fastFail: fastFail,
+      quiet: quiet,
+      generateBaseline: generateBaseline,
+      fix: fix,
+      fixApply: fixApply,
+      ignoreFileOverride: ignoreFileOverride,
+      config: config,
+    );
+    exitCode = success ? 0 : 1;
+  } on MissingDefaultsException catch (e) {
+    _printUsage(parser, 'Missing skills directory. Checked defaults: ${e.defaults.join(', ')}');
+    exitCode = 64;
+  }
 }
 
 /// Creates the [ArgParser] for the CLI, adding all supported flags and options.
@@ -268,6 +253,25 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
+  var effectiveSkillDirPaths = List<String>.from(skillDirPaths);
+
+  if (effectiveSkillDirPaths.isEmpty && individualSkillPaths.isEmpty) {
+    if (config != null && config.directoryConfigs.isNotEmpty) {
+      effectiveSkillDirPaths = config.directoryConfigs.map((e) => e.path).toList();
+    } else {
+      final defaults = ['.claude/skills', '.agents/skills'];
+      final existingDefaults = <String>[];
+      for (final path in defaults) {
+        if (Directory(path).existsSync()) {
+          existingDefaults.add(path);
+        }
+      }
+      if (existingDefaults.isEmpty) {
+        throw MissingDefaultsException(defaults);
+      }
+      effectiveSkillDirPaths = existingDefaults;
+    }
+  }
   final session = ValidationSession(
     config: config ?? Configuration(),
     resolvedRules: resolvedRules,
@@ -291,14 +295,14 @@ Future<bool> validateSkillsInternal({
     return false;
   }
 
-  for (final rootPath in skillDirPaths) {
+  for (final rootPath in effectiveSkillDirPaths) {
     final bool keepGoing = await session.processSkillRoot(rootPath);
     if (!keepGoing) {
       break;
     }
   }
 
-  session.reportNoSkillsValidated(skillDirPaths);
+  session.reportNoSkillsValidated(effectiveSkillDirPaths);
 
   if (generateBaseline) {
     return true;
@@ -351,4 +355,9 @@ void _printUsage(ArgParser parser, [String? error]) {
   }
   _log.info('Usage: dart_skills_lint [options] --$_skillsDirectoryFlag <$_skillsDirectoryFlag>');
   _log.info(parser.usage);
+}
+
+class MissingDefaultsException implements Exception {
+  MissingDefaultsException(this.defaults);
+  final List<String> defaults;
 }

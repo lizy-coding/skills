@@ -18,3 +18,6 @@ build/
 
 # You might want to ignore pubspec.lock if this is a library package
 # pubspec.lock
+
+# Logs
+.agents/*.log

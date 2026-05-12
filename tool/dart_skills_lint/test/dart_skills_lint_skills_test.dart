@@ -17,10 +17,7 @@ void main() {
       // to mirror what is configured in the repository.
       final Configuration config = await ConfigParser.loadConfig();
 
-      final bool isValid = await validateSkills(
-        config: config,
-        resolvedRules: config.configuredRules, // Pass global rules from config
-      );
+      final bool isValid = await validateSkills(config: config);
       expect(isValid, isTrue, reason: 'Skills validation failed. See above for details.');
     } finally {
       Logger.root.level = oldLevel;

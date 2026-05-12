@@ -8,6 +8,7 @@ import 'dart:io';
 import 'package:logging/logging.dart';
 import 'package:yaml/yaml.dart';
 import 'models/analysis_severity.dart';
+import 'path_utils.dart';
 
 final _log = Logger('dart_skills_lint');
 
@@ -42,7 +43,7 @@ class ConfigParser {
   /// default file is missing, it returns an empty [Configuration] (preserving
   /// current behavior).
   static Future<Configuration> loadConfig({String? path}) async {
-    final String resolvedPath = path ?? 'dart_skills_lint.yaml';
+    final String resolvedPath = expandPath(path ?? 'dart_skills_lint.yaml');
     final configFile = File(resolvedPath);
 
     if (!configFile.existsSync()) {

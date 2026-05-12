@@ -4,6 +4,7 @@
 
 import 'dart:io';
 import 'package:dart_skills_lint/dart_skills_lint.dart';
+import 'package:path/path.dart' as p;
 import 'package:test/test.dart';
 
 void main() {
@@ -47,6 +48,77 @@ void main() {
         hasYamlError,
         isFalse,
         reason: 'Should not have valid-yaml-metadata error when disabled.',
+      );
+    } finally {
+      await tempDir.delete(recursive: true);
+    }
+  });
+
+  test('loadConfig resolves tilde in custom config path', () async {
+    final String? home = Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    expect(home, isNotNull, reason: 'HOME or USERPROFILE environment variable must be set.');
+
+    final tempFile = File(p.join(home!, 'dart_skills_lint_temp_test.yaml'));
+    await tempFile.writeAsString('''
+dart_skills_lint:
+  rules:
+    check-relative-paths: error
+''');
+
+    try {
+      // Under the current code, this will fail because loadConfig does not do tilde expansion.
+      final Configuration config = await ConfigParser.loadConfig(
+        path: '~/dart_skills_lint_temp_test.yaml',
+      );
+      expect(config.configuredRules, contains('check-relative-paths'));
+    } finally {
+      if (tempFile.existsSync()) {
+        await tempFile.delete();
+      }
+    }
+  });
+
+  test('Path resolution avoids collision with prefix-sharing directories', () async {
+    final Directory tempDir = await Directory.systemTemp.createTemp('api_test.');
+    try {
+      // We create two directories: 'skills-tests/test-skill' (the one being evaluated)
+      // and 'skills' (the one defined in config)
+      final configDir = Directory(p.join(tempDir.path, 'skills'));
+      final Directory skillDir = await Directory(
+        p.join(tempDir.path, 'skills-tests', 'test-skill'),
+      ).create(recursive: true);
+
+      // Create SKILL.md with trailing whitespace
+      await File(p.join(skillDir.path, 'SKILL.md')).writeAsString('''
+---
+name: test-skill
+description: A test skill
+---
+Line with space 
+'''); // Trailing space
+
+      // Create a Configuration with rules enabled specifically for 'skills'
+      final config = Configuration(
+        directoryConfigs: [
+          DirectoryConfig(
+            path: configDir.path,
+            rules: {'check-trailing-whitespace': AnalysisSeverity.error},
+          ),
+        ],
+      );
+
+      // Call validateSkills. Under unsafe prefix-matching, 'skills-tests'
+      // starts with 'skills' (prefix collision) and enables trailing whitespace checks as error.
+      // It should pass because 'skills-tests' is NOT the same directory as 'skills'.
+      final bool isValid = await validateSkills(
+        individualSkillPaths: [skillDir.path],
+        config: config,
+      );
+
+      expect(
+        isValid,
+        isTrue,
+        reason: 'Should pass because skills-tests does not match configuration for skills.',
       );
     } finally {
       await tempDir.delete(recursive: true);

@@ -270,7 +270,8 @@ class ValidationSession {
     // 2. Path-Specific Config (from YAML)
     for (final ({String normalizedPath, DirectoryConfig config}) entry
         in _normalizedDirectoryConfigs) {
-      if (normalizedPath.startsWith(entry.normalizedPath)) {
+      final String configPath = entry.normalizedPath;
+      if (p.equals(configPath, normalizedPath) || p.isWithin(configPath, normalizedPath)) {
         localRules.addAll(entry.config.rules);
         break;
       }
@@ -288,7 +289,8 @@ class ValidationSession {
     }
     for (final ({String normalizedPath, DirectoryConfig config}) entry
         in _normalizedDirectoryConfigs) {
-      if (normalizedPath.startsWith(entry.normalizedPath)) {
+      final String configPath = entry.normalizedPath;
+      if (p.equals(configPath, normalizedPath) || p.isWithin(configPath, normalizedPath)) {
         return entry.config.ignoreFile;
       }
     }

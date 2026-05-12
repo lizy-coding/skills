@@ -21,7 +21,7 @@ void main() {
       return parser;
     }
 
-    test('returns empty map when no args and empty config', () {
+    test('returns empty map when no CLI overrides are provided', () {
       final ArgResults results = createParser().parse([]);
 
       final Map<String, AnalysisSeverity> resolved = resolveRules(results);
@@ -29,24 +29,11 @@ void main() {
       expect(
         resolved,
         isEmpty,
-        reason:
-            'Defaults are now handled by Validator, so resolveRules should return empty map when no overrides.',
+        reason: 'resolveRules should return an empty map when no CLI override flags are provided.',
       );
     });
 
-    test('ignores config rules', () {
-      final ArgResults results = createParser().parse([]);
-
-      final Map<String, AnalysisSeverity> resolved = resolveRules(results);
-
-      expect(
-        resolved,
-        isEmpty,
-        reason: 'resolveRules should only return CLI overrides, ignoring config.',
-      );
-    });
-
-    test('CLI flags override config and defaults', () {
+    test('CLI flags override defaults', () {
       final ArgResults results = createParser().parse(['--${RelativePathsRule.ruleName}']);
 
       final Map<String, AnalysisSeverity> resolved = resolveRules(results);
@@ -54,7 +41,7 @@ void main() {
       expect(resolved[RelativePathsRule.ruleName], AnalysisSeverity.error);
     });
 
-    test('CLI flag disabled overrides config', () {
+    test('CLI flag disabled overrides defaults', () {
       final ArgResults results = createParser().parse(['--no-${ValidYamlMetadataRule.ruleName}']);
 
       final Map<String, AnalysisSeverity> resolved = resolveRules(results);

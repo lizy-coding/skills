@@ -9,31 +9,28 @@ import 'package:test/test.dart';
 
 void main() {
   test('validateSkills applies default rules when not specified', () async {
-    final Directory tempDir = await Directory.systemTemp.createTemp('api_test.');
-    try {
-      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-
-      // Create a skill with invalid YAML metadata (missing frontmatter)
-      // valid-yaml-metadata is error by default.
-      await File('${skillDir.path}/SKILL.md').writeAsString('Invalid YAML No Frontmatter');
+    await withTempDir((tempDir) async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'test-skill',
+        skillContent: 'Invalid YAML No Frontmatter',
+      );
 
       // Call validateSkills with empty overrides.
       // It should apply default rules, including valid-yaml-metadata.
       final bool isValid = await validateSkills(individualSkillPaths: [skillDir.path]);
 
       expect(isValid, isFalse, reason: 'Should fail due to default rule valid-yaml-metadata.');
-    } finally {
-      await tempDir.delete(recursive: true);
-    }
+    });
   });
 
   test('Validator skips disabled rules', () async {
-    final Directory tempDir = await Directory.systemTemp.createTemp('api_test.');
-    try {
-      final Directory skillDir = await Directory('${tempDir.path}/test-skill').create();
-
-      // Create a skill with invalid YAML metadata (missing frontmatter)
-      await File('${skillDir.path}/SKILL.md').writeAsString('Invalid YAML No Frontmatter');
+    await withTempDir((tempDir) async {
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'test-skill',
+        skillContent: 'Invalid YAML No Frontmatter',
+      );
 
       // Create validator with the rule disabled.
       final validator = Validator(
@@ -49,9 +46,7 @@ void main() {
         isFalse,
         reason: 'Should not have valid-yaml-metadata error when disabled.',
       );
-    } finally {
-      await tempDir.delete(recursive: true);
-    }
+    });
   });
 
   test('loadConfig resolves tilde in custom config path', () async {
@@ -79,23 +74,21 @@ dart_skills_lint:
   });
 
   test('Path resolution avoids collision with prefix-sharing directories', () async {
-    final Directory tempDir = await Directory.systemTemp.createTemp('api_test.');
-    try {
+    await withTempDir((tempDir) async {
       // We create two directories: 'skills-tests/test-skill' (the one being evaluated)
       // and 'skills' (the one defined in config)
       final configDir = Directory(p.join(tempDir.path, 'skills'));
-      final Directory skillDir = await Directory(
-        p.join(tempDir.path, 'skills-tests', 'test-skill'),
-      ).create(recursive: true);
-
-      // Create SKILL.md with trailing whitespace
-      await File(p.join(skillDir.path, 'SKILL.md')).writeAsString('''
+      final Directory skillDir = await createDummySkill(
+        tempDir,
+        name: 'skills-tests/test-skill',
+        skillContent: '''
 ---
 name: test-skill
 description: A test skill
 ---
 Line with space 
-'''); // Trailing space
+''', // Trailing space
+      );
 
       // Create a Configuration with rules enabled specifically for 'skills'
       final config = Configuration(
@@ -120,8 +113,27 @@ Line with space
         isTrue,
         reason: 'Should pass because skills-tests does not match configuration for skills.',
       );
-    } finally {
-      await tempDir.delete(recursive: true);
-    }
+    });
   });
+}
+
+/// Creates a temporary directory for testing and automatically cleans it up.
+Future<void> withTempDir(Future<void> Function(Directory tempDir) action) async {
+  final Directory tempDir = await Directory.systemTemp.createTemp('api_test.');
+  try {
+    await action(tempDir);
+  } finally {
+    await tempDir.delete(recursive: true);
+  }
+}
+
+/// Helper to create a dummy skill with specific SKILL.md contents.
+Future<Directory> createDummySkill(
+  Directory parentDir, {
+  required String name,
+  required String skillContent,
+}) async {
+  final Directory skillDir = await Directory(p.join(parentDir.path, name)).create(recursive: true);
+  await File(p.join(skillDir.path, 'SKILL.md')).writeAsString(skillContent);
+  return skillDir;
 }

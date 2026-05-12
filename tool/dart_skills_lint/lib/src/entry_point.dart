@@ -86,7 +86,7 @@ Future<void> runApp(List<String> args) async {
     ignoreFileOverride = results[_ignoreFileOption] as String?;
   }
 
-  bool success;
+  var success = false;
   try {
     success = await validateSkillsInternal(
       skillDirPaths: skillDirPaths,
@@ -101,7 +101,11 @@ Future<void> runApp(List<String> args) async {
       ignoreFileOverride: ignoreFileOverride,
       config: config,
     );
-    exitCode = success ? 0 : 1;
+    if (success) {
+      exitCode = 0;
+    } else {
+      exitCode = 1;
+    }
   } on MissingDefaultsException catch (e) {
     _printUsage(parser, 'Missing skills directory. Checked defaults: ${e.defaults.join(', ')}');
     exitCode = 64;
@@ -239,6 +243,8 @@ Future<bool> validateSkills({
 /// Internal implementation of skill validation that supports fixing.
 ///
 /// Kept internal to avoid exposing experimental fix parameters in the public API.
+///
+/// Returns `true` if all validations passed (or if generating a baseline), `false` otherwise.
 @visibleForTesting
 Future<bool> validateSkillsInternal({
   List<String> skillDirPaths = const [],
@@ -254,25 +260,12 @@ Future<bool> validateSkillsInternal({
   Configuration? config,
   List<SkillRule> customRules = const [],
 }) async {
-  var effectiveSkillDirPaths = List<String>.from(skillDirPaths);
+  final List<String> effectiveSkillDirPaths = _getEffectiveSkillDirPaths(
+    skillDirPaths: skillDirPaths,
+    individualSkillPaths: individualSkillPaths,
+    config: config,
+  );
 
-  if (effectiveSkillDirPaths.isEmpty && individualSkillPaths.isEmpty) {
-    if (config != null && config.directoryConfigs.isNotEmpty) {
-      effectiveSkillDirPaths = config.directoryConfigs.map((e) => e.path).toList();
-    } else {
-      final defaults = ['.claude/skills', '.agents/skills'];
-      final existingDefaults = <String>[];
-      for (final path in defaults) {
-        if (Directory(path).existsSync()) {
-          existingDefaults.add(path);
-        }
-      }
-      if (existingDefaults.isEmpty) {
-        throw MissingDefaultsException(defaults);
-      }
-      effectiveSkillDirPaths = existingDefaults;
-    }
-  }
   final session = ValidationSession(
     config: config ?? Configuration(),
     resolvedRules: resolvedRules,
@@ -309,6 +302,39 @@ Future<bool> validateSkillsInternal({
     return true;
   }
   return !session.anyFailed;
+}
+
+/// Computes the list of skill directory paths to validate.
+///
+/// If paths are not explicitly provided, falls back to configured directory
+/// paths, and then to default locations (`.claude/skills`, `.agents/skills`).
+/// Throws [MissingDefaultsException] if no directories are found.
+List<String> _getEffectiveSkillDirPaths({
+  required List<String> skillDirPaths,
+  required List<String> individualSkillPaths,
+  Configuration? config,
+}) {
+  final effectiveSkillDirPaths = List<String>.from(skillDirPaths);
+
+  if (effectiveSkillDirPaths.isEmpty && individualSkillPaths.isEmpty) {
+    if (config != null && config.directoryConfigs.isNotEmpty) {
+      return config.directoryConfigs.map((e) => e.path).toList();
+    } else {
+      final defaults = ['.claude/skills', '.agents/skills'];
+      final existingDefaults = <String>[];
+      for (final path in defaults) {
+        if (Directory(path).existsSync()) {
+          existingDefaults.add(path);
+        }
+      }
+      if (existingDefaults.isEmpty) {
+        throw MissingDefaultsException(defaults);
+      }
+      return existingDefaults;
+    }
+  }
+
+  return effectiveSkillDirPaths;
 }
 
 @visibleForTesting

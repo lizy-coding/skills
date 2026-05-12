@@ -316,8 +316,9 @@ class ValidationSession {
         in _normalizedDirectoryConfigs) {
       final String configPath = entry.normalizedPath;
       if (p.equals(configPath, normalizedPath) || p.isWithin(configPath, normalizedPath)) {
-        if (entry.config.ignoreFile != null) {
-          resolvedIgnoreFile = entry.config.ignoreFile;
+        final String? ignoreFile = entry.config.ignoreFile;
+        if (ignoreFile != null) {
+          resolvedIgnoreFile = ignoreFile;
         }
       }
     }

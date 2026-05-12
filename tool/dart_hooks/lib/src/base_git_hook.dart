@@ -57,7 +57,10 @@ abstract class BaseGitHook {
         onExit(0);
         return;
       }
-      final String repoRoot = (repoRootResult.stdout as String).trim();
+      final String repoRootRaw = (repoRootResult.stdout as String).trim();
+      final String repoRoot = Directory(repoRootRaw).existsSync()
+          ? Directory(repoRootRaw).resolveSymbolicLinksSync()
+          : repoRootRaw;
 
       // 2. Get modified files
       final List<String> files;
@@ -80,10 +83,18 @@ abstract class BaseGitHook {
       // 3. Filter files (Hierarchical scoping)
       // The scope is the directory containing the .agents folder.
       // packageRoot is passed as the directory containing .agents.
-      final scopeDir = packageRoot;
+      final String scopeDir = Directory(packageRoot).existsSync()
+          ? Directory(packageRoot).resolveSymbolicLinksSync()
+          : packageRoot;
 
       final List<String> scopedFiles = files.where((file) {
-        return path.isWithin(scopeDir, file);
+        String canonicalFile = file;
+        try {
+          if (File(file).existsSync()) {
+            canonicalFile = File(file).resolveSymbolicLinksSync();
+          }
+        } catch (_) {}
+        return path.isWithin(scopeDir, canonicalFile);
       }).toList();
 
       if (scopedFiles.isEmpty) {

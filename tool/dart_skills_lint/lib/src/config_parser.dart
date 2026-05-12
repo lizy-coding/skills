@@ -38,7 +38,7 @@ class ConfigParser {
   /// `dart_skills_lint.yaml` if no path is provided.
   ///
   /// If a [path] is explicitly provided and the file does not exist, this
-  /// method throws a [PathNotFoundException]. If no path is provided and the
+  /// method throws a [FileSystemException]. If no path is provided and the
   /// default file is missing, it returns an empty [Configuration] (preserving
   /// current behavior).
   static Future<Configuration> loadConfig({String? path}) async {

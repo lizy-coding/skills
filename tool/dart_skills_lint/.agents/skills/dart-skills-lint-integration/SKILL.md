@@ -82,6 +82,7 @@ block entirely.
 
 ### Core Validation Workflow
 ```dart
+import 'package:path/path.dart' as path;
 import 'package:dart_skills_lint/dart_skills_lint.dart';
 
 const String _configFileName = 'dart_skills_lint.yaml';

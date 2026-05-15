@@ -129,7 +129,7 @@ test('Custom Rule Validation', () async {
 ## Expected Final Output: Pull Request Creation Command
 
 Conclude tasks by staging verified work on a descriptive local branch
-(suffixed with the ISO 8601 date format), committing the changes with
+(suffixed with the date in YYYY-MM-DD format), committing the changes with
 a concise, standard commit message, and outputting a fully executable
 `gh pr create` command.
 

@@ -3,8 +3,9 @@
 .dart_tool/
 pubspec.lock
 
-# Claude Code
-.claude/
+# Claude Code — commit shared config (settings.json, skills/, agents/, commands/),
+# but keep personal/local overrides out of version control.
+**/.claude/settings.local.json
 
 # IntelliJ
 *.iml
